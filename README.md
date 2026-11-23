@@ -2,8 +2,9 @@
 
 An [MCP](https://modelcontextprotocol.io) server that gives an AI agent (Claude Code,
 Claude Desktop, or any other MCP client) access to **several Gmail accounts at once**.
-It is read-only by default. Drafts are an opt-in you choose for each account, and
-nothing is ever sent.
+Every account is read-only unless you opt it in. You choose, per account, whether the
+agent may also save drafts, or save drafts **and send**. By default the human confirms
+each send.
 
 ```
 you: "anything from the landlord this week, in any of my inboxes?"
@@ -27,26 +28,46 @@ for a survey with sources. gmail-multi is built around a narrower, safer default
 |                    | gmail-multi                                                                                                                                                       |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Default permission | `gmail.readonly` token per account. The token itself cannot write.                                                                                                |
-| Drafts             | Opt-in per account (`gmail.compose`), with a `create_draft` tool. No send tool.                                                                                   |
+| Drafts / send      | Opt-in per account: `--drafts` or `--send`. Send tools exist only when some account is in send mode, and each send asks the human first (MCP elicitation).        |
 | Accounts           | One server, explicit alias on every call. `all` works for search only (fan-out, merged newest first).                                                             |
 | Who adds accounts  | Only you, from the CLI. The agent cannot add accounts or widen scopes.                                                                                            |
-| Tokens             | OS keychain, or an AES-256-GCM file encrypted with your passphrase. Never plain text.                                                                             |
+| Tokens             | OS keychain, an AES-256-GCM file encrypted with your passphrase, or your password manager (Proton Pass, 1Password, Bitwarden, or any CLI). Never plain text.      |
 | Email content      | Treated as untrusted. HTML is turned into text, fields have size caps, and content is fenced off with random-nonce markers and a "data, not instructions" notice. |
 | OAuth client       | Your own Google Cloud client. This project ships no client ID and runs no server.                                                                                 |
 
+## Modes
+
+| Mode               | `add` flag | Google scopes                     | Tools allowed                       |
+| ------------------ | ---------- | --------------------------------- | ----------------------------------- |
+| readonly (default) | none       | `gmail.readonly`                  | read tools                          |
+| drafts             | `--drafts` | `gmail.readonly`, `gmail.compose` | read tools, `create_draft`          |
+| send               | `--send`   | `gmail.readonly`, `gmail.compose` | read tools, drafts, both send tools |
+
+`gmail.compose` is the narrowest scope that covers `drafts.create`, `drafts.send` and
+`messages.send`
+([drafts.send](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.drafts/send),
+[messages.send](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/send)).
+That is why the drafts and send modes get the same token, and gmail-multi itself
+enforces the difference between them (see Security model).
+
 ## Tools
 
-| Tool            | What it does                                                      | Account argument                     |
-| --------------- | ----------------------------------------------------------------- | ------------------------------------ |
-| `list_accounts` | Lists aliases, addresses and modes                                | none                                 |
-| `search`        | Gmail search syntax. Returns metadata and snippets, newest first  | an alias, or `all`                   |
-| `get_message`   | One message: headers, plain-text body, attachment names           | alias (required)                     |
-| `get_thread`    | A whole conversation, cut to a size budget                        | alias (required)                     |
-| `list_labels`   | The account's labels                                              | alias (required)                     |
-| `create_draft`  | Saves a draft (optionally as a reply in a thread). Never sends it | alias of an account in `drafts` mode |
+| Tool             | What it does                                                                                             | Account argument       |
+| ---------------- | -------------------------------------------------------------------------------------------------------- | ---------------------- |
+| `list_accounts`  | Lists aliases, addresses, modes                                                                          | none                   |
+| `search`         | Gmail search syntax. Returns metadata and snippets, newest first                                         | an alias, or `all`     |
+| `get_message`    | One message: headers, plain-text body, attachments (with `part_id`)                                      | alias                  |
+| `get_thread`     | A whole conversation, cut to a size budget                                                               | alias                  |
+| `list_labels`    | The account's labels                                                                                     | alias                  |
+| `get_attachment` | Text extract of one attachment: text files, HTML, and PDF (with `pypdf`). Other types give metadata only | alias                  |
+| `create_draft`   | Saves a draft (optionally as a reply in a thread)                                                        | drafts or send account |
+| `send_message`   | **Sends a real email**, after the human confirms                                                         | send account           |
+| `send_draft`     | **Sends an existing draft**, after the human confirms                                                    | send account           |
 
-`create_draft` only appears in the tool list when at least one account is in `drafts`
-mode. Every call also checks the mode again.
+`create_draft` is listed only when some account can draft. `send_message` and
+`send_draft` are listed only when some account is in send mode. All three are hidden
+under `serve --read-only`. Every call checks the account's mode again, whatever the tool
+list says.
 
 ## Setup
 
@@ -63,7 +84,7 @@ You need Python 3.10+ and about 10 minutes for the Google Cloud part, which you 
    - With External and "Testing" status, add every address you will connect as a
      **test user** (Audience > Test users).
    - Data access / scopes: add `.../auth/gmail.readonly`, and `.../auth/gmail.compose`
-     if you want drafts.
+     if you want drafts or sending.
 4. **Create the client**: Clients > Create client > Application type **Desktop app**.
    Download the JSON file (`client_secret_....json`).
 
@@ -87,6 +108,7 @@ From a clone of this repository:
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install "mcp>=2.3,<3" "httpx>=0.27,<1" "keyring>=25,<26" "cryptography>=43"
+.venv/bin/pip install pypdf     # optional: PDF text in get_attachment (pure Python, no dependencies)
 # until packaging lands: run as a module
 export PYTHONPATH="$PWD/src"
 alias gmail-multi="$PWD/.venv/bin/python -m gmail_multi"
@@ -96,7 +118,8 @@ alias gmail-multi="$PWD/.venv/bin/python -m gmail_multi"
 
 ```bash
 gmail-multi add personal --client-file ~/Downloads/client_secret_XXXX.json   # first time only
-gmail-multi add work --drafts          # this one may also create drafts
+gmail-multi add club --drafts          # may also save drafts
+gmail-multi add work --send            # may save drafts and send (each send confirmed)
 gmail-multi list
 ```
 
@@ -111,22 +134,77 @@ gmail-multi add work --port 8765 --no-browser
 # on your desktop:  ssh -L 8765:127.0.0.1:8765 <server>   then open the printed URL
 ```
 
-To change an account's mode, run `add` again with or without `--drafts`. Google does
-not support adding scopes later for installed apps, so the account is authorized again.
+To change an account's mode, run `add` again with `--drafts`, `--send` or neither. Google
+does not support adding scopes later for installed apps, so the account is authorized
+again.
 
 **Removing:** `gmail-multi remove <alias>` (also `revoke`) revokes the grant at Google and
-deletes the local tokens. `--keep-grant` only deletes the local tokens.
+deletes the stored tokens. `--keep-grant` only deletes the stored tokens.
 
-### 4. Connect your MCP client
+### 4. Choose where tokens live (first `add` only)
+
+| `--store`        | Where                                                                                                       |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| `auto` (default) | the OS keychain if there is a secure one, otherwise the encrypted file                                      |
+| `keyring`        | macOS Keychain, Windows Credential Locker, Secret Service / KWallet                                         |
+| `file`           | `tokens.enc`, AES-256-GCM, key from your passphrase (scrypt)                                                |
+| `command`        | your password manager, through its CLI (`--store-preset proton-pass`, `1password`, `bitwarden` or `custom`) |
+
+Password-manager examples:
+
+```bash
+# Proton Pass (pass-cli). Make a vault named "gmail-multi" first, or pass --store-vault.
+gmail-multi add personal --client-file client.json --store command --store-preset proton-pass \
+    --store-env PROTON_PASS_KEY_PROVIDER=fs     # only if your pass-cli setup uses the fs key provider
+
+# 1Password (op). Sign in first: desktop-app integration, `op signin`, or OP_SERVICE_ACCOUNT_TOKEN in your shell.
+gmail-multi add personal --client-file client.json --store command --store-preset 1password --store-vault gmail-multi
+
+# Bitwarden (bw). Run `bw unlock` and export BW_SESSION in the shell that runs gmail-multi.
+gmail-multi add personal --client-file client.json --store command --store-preset bitwarden
+
+# Anything else: three commands with an {item} placeholder. set reads the secret on stdin, get prints it.
+gmail-multi add personal --client-file client.json --store command --store-preset custom \
+    --store-get 'mypm read {item}' --store-set 'mypm write {item}' --store-delete 'mypm rm {item}'
+```
+
+How each preset talks to its CLI. Secrets only ever travel on stdin or stdout, and argv
+carries vault and item names only:
+
+| Preset        | Read                                                                     | Write                                                                                                 | Delete                       |
+| ------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `proton-pass` | `pass-cli item view --vault-name V --item-title T --field note`          | trash the old item, then `pass-cli item create note --vault-name V --from-template -` (JSON on stdin) | `pass-cli item trash ...`    |
+| `1password`   | `op item get T --vault V --fields label=password --reveal --format json` | delete the old item, then `op item create --vault V -` (JSON template on stdin)                       | `op item delete T --vault V` |
+| `bitwarden`   | `bw list items --search T`, exact name match, `notes`                    | `bw create item` / `bw edit item ID` (base64 JSON on stdin)                                           | `bw delete item ID`          |
+
+Item names are `gmail-multi-client` and `gmail-multi-account-<alias>`. Docs used:
+[pass-cli item commands](https://protonpass.github.io/pass-cli/commands/item),
+[op item](https://www.1password.dev/cli/reference/management-commands/item/) (its own
+warning: "Command arguments get logged in your command history, and can be visible to
+other processes on your machine"), and [Bitwarden CLI](https://bitwarden.com/help/cli/).
+
+- **Locked or signed-out vault:** the CLI's error is turned into a clear message ("vault
+  looks locked or signed out..."), and the secret never appears in it. In `serve`, an
+  account whose token cannot be read is reported as unavailable, and the other accounts
+  keep working.
+- **Proton Pass agent sessions** need a reason on each access. gmail-multi sets
+  `PROTON_PASS_AGENT_REASON` unless you already set it.
+- **Old versions:** "write" replaces the item. Proton Pass and Bitwarden move the old
+  item to trash, and 1Password to Recently Deleted. Empty those if you want old tokens
+  gone. Removed accounts are revoked at Google anyway.
+- `--store-env` takes non-secret settings only. Names that look like secrets
+  (`*TOKEN*`, `*SESSION*`, ...) are refused, so keep those in your shell environment.
+
+### 5. Connect your MCP client
 
 **Claude Code:**
 
 ```bash
-claude mcp add --transport stdio --scope user gmail-multi \
+claude mcp add --env PYTHONPATH=/path/to/gmail-multi/src --transport stdio --scope user gmail-multi \
   -- /path/to/gmail-multi/.venv/bin/python -m gmail_multi serve
 ```
 
-(Add `--env PYTHONPATH=/path/to/gmail-multi/src` before `--transport` until packaging lands.)
+(Drop `--env PYTHONPATH=...` once packaging lands.)
 
 **Claude Desktop:** edit `claude_desktop_config.json`. On macOS it is
 `~/Library/Application Support/Claude/`, on Windows `%APPDATA%\Claude\`, and on Linux
@@ -145,40 +223,100 @@ claude mcp add --transport stdio --scope user gmail-multi \
 }
 ```
 
-Add `"--read-only"` to `args` to turn drafts off for every account in that client.
+`serve` flags:
 
-If you use the encrypted-file store (see below), add
+- `--read-only` turns off drafts and sending for every account.
+- `--no-confirm-send` skips gmail-multi's own confirmation prompt (see below).
+
+If you use the encrypted-file store, add
 `"GMAIL_MULTI_PASSPHRASE_CMD": "pass show gmail-multi"`, or a similar command for your
 password manager, to `env`.
 
+## Sending, and the confirmation step
+
+`send_message` and `send_draft` send real email. They cannot be unsent. Their tool
+descriptions say so, and they carry the MCP `destructiveHint`.
+
+Before each send, gmail-multi asks the human through **MCP elicitation**. The prompt
+shows:
+
+- the sending account and address,
+- To, Cc and Bcc, and the number of recipients,
+- the subject,
+- the body (the first 1,500 characters). For `send_draft`, open the draft in Gmail to
+  read the body.
+
+The email goes out only if the person ticks "send". Declining or cancelling returns
+"Not sent". The MCP Python SDK carries the question either as a live request (older
+protocol versions) or as a multi-round-trip `input_required` result (2026-07-28)
+([SDK docs](https://py.sdk.modelcontextprotocol.io/handlers/elicitation/)).
+
+- **Clients without elicitation support:** the send is refused, and the model is told
+  why. It fails closed. The owner can then pick a client that supports elicitation, or
+  start the server with `serve --no-confirm-send`. In that case the client's own
+  tool-approval prompt is the only check, so keep it on for `send_*`.
+- **The prompt is only as good as the client.** The MCP spec allows a client to answer
+  elicitations itself. Use a client that shows them to you.
+- **Checks before anything is sent:**
+  - the account must be in send mode,
+  - the server must not be in `--read-only`,
+  - To, Cc, Bcc and Subject must each be a single line (header injection is refused),
+  - at most 20 recipients across To, Cc and Bcc,
+  - a body of at most 100,000 characters.
+
+  A refused send never reaches the confirmation prompt. `send_draft` checks the draft's
+  recipients again just before sending. A send is never retried automatically.
+
+## Attachments
+
+- `get_message` lists each attachment with its `part_id`, file name, type and size.
+- `get_attachment(account, message_id, part_id)` returns a **text extract only**:
+  - text files (text/\*, JSON, XML, CSV, .md, .log, ...),
+  - HTML, converted to text,
+  - PDF, when the optional pure-Python [`pypdf`](https://pypi.org/project/pypdf/) is
+    installed: text from up to 50 pages, with a 20-second time limit, and pypdf's own
+    decompression limits.
+
+  Other file types give metadata only.
+
+- Caps: a **5 MB** download cap (checked before downloading, and again on the bytes
+  received) and **50,000 characters** of text returned.
+- The extract is wrapped as untrusted content, exactly like a message body.
+- Files are never saved to disk.
+
 ## Security model
 
-**What the agent can do.** It can read mail in accounts you added. It can create drafts
-in accounts you put in `drafts` mode. It cannot send, delete, archive, label, or change
-settings. No code path in this server calls those endpoints.
+**What the agent can do:**
 
-One caveat: Google's `gmail.compose` scope covers drafts **and sending**
-([scope list](https://developers.google.com/workspace/gmail/api/auth/scopes)). A token
-for a drafts account would be able to send if someone stole it. So keep read-only as
-the default and opt in to drafts only where you need it.
+- read mail in the accounts you added,
+- save drafts in drafts-mode and send-mode accounts,
+- send from send-mode accounts, normally after you confirm each send.
+
+It cannot delete, archive, label, or change settings. No code path in this server calls
+those endpoints.
+
+**The token caveat.** For drafts-mode accounts, the "no send" rule is enforced by
+gmail-multi, not by Google. Google's `gmail.compose` scope covers drafts **and sending**
+([scope list](https://developers.google.com/workspace/gmail/api/auth/scopes)), so a
+stolen drafts or send token could send. Keep read-only as the default, and opt in only
+where you need to.
 
 **What the agent cannot do.** It cannot add accounts, change modes or widen scopes.
 Those are CLI-only and need you in a browser.
 
-**Tokens.**
+**Tokens:**
 
-- _Keychain (default when available):_ macOS Keychain, Windows Credential Locker, or
-  Secret Service / KWallet on Linux, via [`keyring`](https://pypi.org/project/keyring/).
-  Backends known to be insecure (the null/fail backend, keyrings.alt plaintext) are
-  refused.
-- _Encrypted file (fallback, e.g. headless Linux):_ `tokens.enc` holds the whole store,
-  encrypted with AES-256-GCM under a key derived from your passphrase with scrypt. The
-  passphrase comes from `GMAIL_MULTI_PASSPHRASE_CMD` (a command whose output is the
-  passphrase; recommended), `GMAIL_MULTI_PASSPHRASE`, or a prompt. The server fails
-  closed if it has none.
-- The config file (`config.json`: aliases, addresses, modes) and `tokens.enc` are written
-  with mode 600 in a mode-700 directory. The directory is `~/.config/gmail-multi`, or
-  `%APPDATA%\gmail-multi`, or set `GMAIL_MULTI_HOME`.
+- _Keychain:_ via [`keyring`](https://pypi.org/project/keyring/). Backends known to be
+  insecure (null/fail, keyrings.alt plaintext) are refused.
+- _Encrypted file:_ `tokens.enc` holds the whole store, encrypted with AES-256-GCM under
+  a key derived from your passphrase with scrypt. The passphrase comes from
+  `GMAIL_MULTI_PASSPHRASE_CMD` (recommended), `GMAIL_MULTI_PASSPHRASE`, or a prompt. The
+  server fails closed if it has none.
+- _Password manager:_ see step 4. Secrets go over stdin and stdout only, never argv,
+  never into gmail-multi's config, and never into logs or error messages.
+- `config.json` (aliases, addresses, modes, password-manager settings) and `tokens.enc`
+  are written with mode 600 in a mode-700 directory. The directory is
+  `~/.config/gmail-multi`, or `%APPDATA%\gmail-multi`, or set `GMAIL_MULTI_HOME`.
 - The OAuth client secret is stored in the token store too. Google says desktop clients
   "cannot keep secrets confidential"
   ([docs](https://developers.google.com/identity/protocols/oauth2/native-app)), so the
@@ -187,7 +325,7 @@ Those are CLI-only and need you in a browser.
 **OAuth flow.** This is Google's installed-app flow: a loopback redirect on
 `127.0.0.1:<random port>`, PKCE with S256, and a random `state` checked against CSRF.
 After consent, gmail-multi checks which scopes you actually granted. If you declined
-drafts, the account is saved as read-only. If you declined read access, nothing is
+compose, the account is saved as read-only. If you declined read access, nothing is
 saved and the token is revoked.
 
 **Email is untrusted input.** Anyone can email you text written to steer an AI agent
@@ -197,21 +335,27 @@ saved and the token is revoked.
   shown, but only http, https and mailto links,
 - removes control characters and bidi-override characters,
 - caps every field: 20,000 characters per body, an 80,000-character body budget per
-  response, header and subject caps, at most 50 search results,
+  response, 50,000 characters per attachment extract, header and subject caps, at most
+  50 search results,
 - returns content as JSON between `<<<UNTRUSTED_EMAIL nonce=…>>>` markers with a fresh
   random nonce each time, and removes any look-alike markers from the content,
 - starts every result with a notice that the content is data and must not be followed.
 
-Wrapping lowers the risk of prompt injection but does not remove it. The real limit is
-the permission boundary: read-only tokens and no send tool. Keep your MCP client's
-confirmation prompts on for `create_draft`.
+Wrapping lowers the risk of prompt injection but does not remove it. A malicious email
+could still try to talk the agent into sending something. The real limits are:
+
+- read-only by default,
+- send only where you opted in,
+- a human confirmation on every send,
+- the 20-recipient cap.
 
 **Rate limiting.** At most 120 tool calls per minute and 8 concurrent Gmail requests per
 server.
 
-## Limits (v0.1)
+## Limits (v0.2)
 
-- No sending, no attachment downloads, no label changes, no archive or delete.
+- No label changes, archive or delete. No attachments on outgoing mail. Binary
+  attachments give metadata only.
 - Search returns metadata and snippets only. Call `get_message` / `get_thread` for bodies.
 - `all` fans out to every account at once, so large searches over many accounts use more
   Gmail API quota.
@@ -222,15 +366,18 @@ server.
 - `remove` revokes the grant for that Google account and client. If two aliases point to
   the same address, `remove` does not revoke, because that would cut off the other alias
   too.
+- The password-manager presets were checked against each CLI's documentation and
+  `--help`, and tested against fake CLIs, but not yet against live vaults.
 
 ## Development
 
 ```bash
-.venv/bin/pip install pytest pytest-asyncio
+.venv/bin/pip install pytest pytest-asyncio pypdf
 .venv/bin/python -m pytest -q
 ```
 
-The tests use fake Gmail clients and `httpx.MockTransport`. They never call Google.
+The tests use fake Gmail clients, fake password-manager CLIs and `httpx.MockTransport`.
+They never call Google or a real vault.
 
 ## License
 
