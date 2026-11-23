@@ -105,5 +105,5 @@ async def test_attachments_listed_not_downloaded():
     ]}
     svc = MultiGmail(config_with(work=MODE_READONLY), {"work": FakeGmail([msg])})
     _, data = unwrap(await svc.get_message("work", "m1"))
-    assert data["attachments"] == [{"filename": "invoice.pdf", "mime_type": "application/pdf", "size": 1234}]
+    assert data["attachments"] == [{"part_id": None, "filename": "invoice.pdf", "mime_type": "application/pdf", "size": 1234}]
     assert data["body"] == "hello"

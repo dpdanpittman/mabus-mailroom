@@ -25,7 +25,8 @@ def text(result):
 async def test_tools_listed_with_annotations():
     async with Client(server()) as client:
         tools = {t.name: t for t in (await client.list_tools()).tools}
-    assert set(tools) == {"list_accounts", "search", "get_message", "get_thread", "list_labels", "create_draft"}
+    assert set(tools) == {"list_accounts", "search", "get_message", "get_thread", "list_labels", "get_attachment",
+                          "create_draft"}  # no send tools: no account is in send mode
     assert tools["search"].annotations.read_only_hint is True
     assert tools["create_draft"].annotations.read_only_hint is False
     assert "account" in tools["get_message"].input_schema["required"]

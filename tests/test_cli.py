@@ -35,7 +35,7 @@ def setup(monkeypatch):
         revoked.append(token)
         return True
 
-    monkeypatch.setattr(cli, "open_store", lambda kind: store)
+    monkeypatch.setattr(cli, "open_store", lambda kind, settings=None: store)
     monkeypatch.setattr(cli, "revoke_token", fake_revoke)
     cfg = Config.load()
     cfg.store = "keyring"

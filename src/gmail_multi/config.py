@@ -19,11 +19,15 @@ SCOPE_COMPOSE = "https://www.googleapis.com/auth/gmail.compose"
 
 MODE_READONLY = "readonly"
 MODE_DRAFTS = "drafts"
-MODES = (MODE_READONLY, MODE_DRAFTS)
+MODE_SEND = "send"
+MODES = (MODE_READONLY, MODE_DRAFTS, MODE_SEND)
 
+# gmail.compose covers drafts.create, drafts.send and messages.send, so "send" needs
+# no extra scope; the difference between drafts and send is enforced by this server.
 MODE_SCOPES = {
     MODE_READONLY: [SCOPE_READONLY],
     MODE_DRAFTS: [SCOPE_READONLY, SCOPE_COMPOSE],
+    MODE_SEND: [SCOPE_READONLY, SCOPE_COMPOSE],
 }
 
 ALL = "all"
@@ -95,13 +99,18 @@ class Account:
 
     @property
     def can_draft(self) -> bool:
-        return self.mode == MODE_DRAFTS and SCOPE_COMPOSE in self.scopes
+        return self.mode in (MODE_DRAFTS, MODE_SEND) and SCOPE_COMPOSE in self.scopes
+
+    @property
+    def can_send(self) -> bool:
+        return self.mode == MODE_SEND and SCOPE_COMPOSE in self.scopes
 
 
 @dataclass
 class Config:
-    store: str = "auto"  # "keyring" | "file" | "auto" (decided on first save)
+    store: str = "auto"  # "keyring" | "file" | "command" | "auto" (decided on first save)
     accounts: dict[str, Account] = field(default_factory=dict)
+    command_store: dict = field(default_factory=dict)  # settings for the "command" store (no secrets)
     path: Path | None = None
 
     @classmethod
@@ -122,13 +131,15 @@ class Config:
                 mode=mode,
                 scopes=list(a.get("scopes") or MODE_SCOPES[mode]),
             )
-        return cls(store=raw.get("store", "auto"), accounts=accounts, path=path)
+        return cls(store=raw.get("store", "auto"), accounts=accounts,
+                   command_store=dict(raw.get("command_store") or {}), path=path)
 
     def save(self) -> None:
         assert self.path is not None
         payload = {
             "version": 1,
             "store": self.store,
+            **({"command_store": self.command_store} if self.command_store else {}),
             "accounts": {
                 alias: {k: v for k, v in asdict(acc).items() if k != "alias"}
                 for alias, acc in sorted(self.accounts.items())

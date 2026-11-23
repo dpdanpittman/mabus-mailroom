@@ -14,7 +14,7 @@ from pathlib import Path
 import httpx
 
 from . import __version__
-from .config import MODE_DRAFTS, MODE_READONLY, MODE_SCOPES, SCOPE_COMPOSE, SCOPE_READONLY, Account, Config, ConfigError, validate_alias
+from .config import MODE_DRAFTS, MODE_READONLY, MODE_SCOPES, MODE_SEND, SCOPE_COMPOSE, SCOPE_READONLY, Account, Config, ConfigError, validate_alias
 from .gmail import GmailClient
 from .oauth import (OAuthClient, OAuthError, build_auth_url, exchange_code, make_pkce_pair, revoke_token,
                     wait_for_redirect)
@@ -26,9 +26,35 @@ def _err(msg: str) -> int:
     return 1
 
 
-def _open_store(cfg: Config, requested: str | None = None):
+def _command_settings(args) -> dict:
+    """Settings for the 'command' store from `add` flags (names and options only, never secrets)."""
+    settings: dict = {"preset": args.store_preset}
+    if args.store_vault:
+        settings["vault"] = args.store_vault
+    env = {}
+    for pair in args.store_env or []:
+        k, sep, v = pair.partition("=")
+        if not sep or not k:
+            raise StoreError(f"--store-env needs KEY=VALUE, got {pair!r}")
+        if any(w in k.upper() for w in ("TOKEN", "SECRET", "PASSWORD", "SESSION", "KEY_")) and "PROVIDER" not in k.upper():
+            raise StoreError(f"--store-env {k}: put secrets in your shell environment, not in gmail-multi's config")
+        env[k] = v
+    if env:
+        settings["env"] = env
+    for op in ("get", "set", "delete"):
+        cmd = getattr(args, f"store_{op}", None)
+        if cmd:
+            settings[op] = cmd
+    return settings
+
+
+def _open_store(cfg: Config, requested: str | None = None, args=None):
     kind = resolve_store_kind(requested, cfg.store)
-    store = open_store(kind)
+    if kind == "command" and not cfg.command_store:
+        if args is None or not getattr(args, "store_preset", None):
+            raise StoreError("the command store needs --store-preset (proton-pass, 1password, bitwarden or custom)")
+        cfg.command_store = _command_settings(args)
+    store = open_store(kind, cfg.command_store)
     if cfg.store == "auto":
         cfg.store = kind
     return store
@@ -40,7 +66,7 @@ def _open_store(cfg: Config, requested: str | None = None):
 def cmd_add(args) -> int:
     alias = validate_alias(args.alias)
     cfg = Config.load()
-    store = _open_store(cfg, args.store)
+    store = _open_store(cfg, args.store, args)
 
     client_data = store.get(CLIENT_KEY)
     if args.client_file:
@@ -53,7 +79,7 @@ def cmd_add(args) -> int:
     else:
         return _err("no OAuth client yet: pass --client-file path/to/client_secret.json (a Desktop app client)")
 
-    mode = MODE_DRAFTS if args.drafts else MODE_READONLY
+    mode = MODE_SEND if args.send else MODE_DRAFTS if args.drafts else MODE_READONLY
     scopes = MODE_SCOPES[mode]
     verifier, challenge = make_pkce_pair()
     state = secrets.token_urlsafe(24)
@@ -80,8 +106,8 @@ def cmd_add(args) -> int:
                 await revoke_token(http, tokens["refresh_token"])
                 return _err("the gmail.readonly permission was not granted; nothing was saved")
             final_mode = mode
-            if mode == MODE_DRAFTS and SCOPE_COMPOSE not in granted:
-                print("Drafts permission was not granted; saving this account as read-only.", file=sys.stderr)
+            if mode != MODE_READONLY and SCOPE_COMPOSE not in granted:
+                print("The compose permission was not granted; saving this account as read-only.", file=sys.stderr)
                 final_mode = MODE_READONLY
             access = tokens["access_token"]
 
@@ -174,7 +200,7 @@ def cmd_serve(args) -> int:
                 service = MultiGmail(cfg, {}, read_only=True)
             else:
                 service = build_service(cfg, store, http, read_only=args.read_only)
-            await build_server(service).run_stdio_async()
+            await build_server(service, confirm_send=not args.no_confirm_send).run_stdio_async()
 
     asyncio.run(main())
     return 0
@@ -190,9 +216,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     a = sub.add_parser("add", help="authorize a Gmail account under an alias (re-run to change its mode)")
     a.add_argument("alias")
-    a.add_argument("--drafts", action="store_true", help="also allow creating drafts (gmail.compose); default is read-only")
+    m = a.add_mutually_exclusive_group()
+    m.add_argument("--drafts", action="store_true", help="also allow creating drafts (gmail.compose); default is read-only")
+    m.add_argument("--send", action="store_true", help="allow drafts AND sending real email (gmail.compose)")
     a.add_argument("--client-file", help="Desktop-app OAuth client JSON from Google Cloud (needed the first time)")
-    a.add_argument("--store", choices=["auto", "keyring", "file"], default=None, help="where tokens live (first run only)")
+    a.add_argument("--store", choices=["auto", "keyring", "file", "command"], default=None,
+                   help="where tokens live (first run only): OS keychain, encrypted file, or a password manager CLI")
+    a.add_argument("--store-preset", choices=["proton-pass", "1password", "bitwarden", "custom"],
+                   help="password manager for --store command")
+    a.add_argument("--store-vault", help="vault name for --store command (default: gmail-multi)")
+    a.add_argument("--store-env", action="append", metavar="KEY=VALUE",
+                   help="extra non-secret environment for the CLI, e.g. PROTON_PASS_KEY_PROVIDER=fs")
+    a.add_argument("--store-get", help="custom preset: command that prints the secret for {item}")
+    a.add_argument("--store-set", help="custom preset: command that reads the secret for {item} from stdin")
+    a.add_argument("--store-delete", help="custom preset: command that deletes {item}")
     a.add_argument("--port", type=int, default=0, help="fixed loopback port (for SSH forwarding); default random")
     a.add_argument("--no-browser", action="store_true", help="print the URL instead of opening a browser")
     a.add_argument("--login-hint", help="pre-select this Google address on the consent screen")
@@ -209,7 +246,9 @@ def build_parser() -> argparse.ArgumentParser:
         r.set_defaults(func=cmd_remove)
 
     s = sub.add_parser("serve", help="run the MCP server on stdio (MCP clients start this)")
-    s.add_argument("--read-only", action="store_true", help="disable create_draft for every account")
+    s.add_argument("--read-only", action="store_true", help="disable drafts and sending for every account")
+    s.add_argument("--no-confirm-send", action="store_true",
+                   help="do not ask the human (MCP elicitation) before each send; rely on the client's own approval")
     s.set_defaults(func=cmd_serve)
     return p
 

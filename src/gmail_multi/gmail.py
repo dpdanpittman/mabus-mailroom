@@ -3,7 +3,8 @@
 Calls used, with the narrowest scope each accepts:
 
 * users.getProfile, messages.list/get, threads.get, labels.list: gmail.readonly
-* drafts.create: gmail.compose
+* messages.attachments.get: gmail.readonly
+* drafts.create, drafts.get, drafts.send, messages.send: gmail.compose
 """
 
 from __future__ import annotations
@@ -30,7 +31,8 @@ class GmailClient:
         self._http = http
         self._get_token = get_token
 
-    async def _request(self, method: str, path: str, *, params=None, json=None, retry_auth: bool = True) -> dict:
+    async def _request(self, method: str, path: str, *, params=None, json=None, retry_auth: bool = True,
+                       max_bytes: int | None = None) -> dict:
         token = await self._get_token(False)
         resp = await self._http.request(method, f"{API}{path}", params=params, json=json, headers={"Authorization": f"Bearer {token}"})
         if resp.status_code == 401 and retry_auth:
@@ -43,6 +45,8 @@ class GmailClient:
             except ValueError:
                 msg = resp.reason_phrase
             raise GmailError(resp.status_code, str(msg)[:300])
+        if max_bytes is not None and len(resp.content) > max_bytes:
+            raise GmailError(413, f"response larger than the {max_bytes}-byte cap")
         return resp.json() if resp.content else {}
 
     async def profile(self) -> dict:
@@ -71,3 +75,22 @@ class GmailClient:
             message["threadId"] = thread_id
         # Never retried: a mutation runs at most once per tool call.
         return await self._request("POST", "/drafts", json={"message": message}, retry_auth=False)
+
+    async def get_draft(self, draft_id: str) -> dict:
+        params = [("format", "metadata")] + [("metadataHeaders", h) for h in ("To", "Cc", "Bcc", "Subject")]
+        return await self._request("GET", f"/drafts/{draft_id}", params=params)
+
+    async def get_attachment(self, message_id: str, attachment_id: str, max_bytes: int) -> dict:
+        # base64url adds a third; allow for it plus JSON framing.
+        return await self._request("GET", f"/messages/{message_id}/attachments/{attachment_id}",
+                                   max_bytes=max_bytes * 4 // 3 + 4096)
+
+    async def send_message(self, raw_b64url: str, thread_id: str | None = None) -> dict:
+        message: dict = {"raw": raw_b64url}
+        if thread_id:
+            message["threadId"] = thread_id
+        # Never retried: sending runs at most once per tool call.
+        return await self._request("POST", "/messages/send", json=message, retry_auth=False)
+
+    async def send_draft(self, draft_id: str) -> dict:
+        return await self._request("POST", "/drafts/send", json={"id": draft_id}, retry_auth=False)

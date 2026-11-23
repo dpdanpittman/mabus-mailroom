@@ -33,6 +33,10 @@ class Limits:
     max_search_results: int = 50
     max_attachments_listed: int = 50
     max_draft_body_chars: int = 100_000
+    max_recipients: int = 20  # to + cc + bcc, for drafts and sends
+    attachment_download_bytes: int = 5 * 1024 * 1024
+    attachment_text_chars: int = 50_000
+    pdf_max_pages: int = 50
 
 
 DEFAULT_LIMITS = Limits()
@@ -175,6 +179,7 @@ def list_attachments(payload: dict, limits: Limits = DEFAULT_LIMITS) -> list[dic
     for part in _walk(payload or {}):
         if part.get("filename"):
             out.append({
+                "part_id": part.get("partId"),
                 "filename": cap_field(part["filename"], 255),
                 "mime_type": cap_field(part.get("mimeType"), 100),
                 "size": int((part.get("body") or {}).get("size", 0) or 0),
@@ -191,6 +196,73 @@ def header_map(payload: dict) -> dict[str, str]:
         if name and name not in out:
             out[name] = h.get("value") or ""
     return out
+
+
+def find_part(payload: dict, part_id: str) -> dict | None:
+    for part in _walk(payload or {}):
+        if part.get("partId") == part_id and part.get("filename"):
+            return part
+    return None
+
+
+# ------------------------------------------------------------------ attachment text
+
+_TEXTLIKE_MIME = {"application/json", "application/xml", "application/csv", "application/x-yaml",
+                  "application/yaml", "application/ld+json"}
+_TEXTLIKE_EXT = (".txt", ".csv", ".tsv", ".md", ".json", ".xml", ".log", ".ics", ".vcf", ".yaml", ".yml", ".html", ".htm")
+
+
+def attachment_kind(mime: str, filename: str) -> str:
+    """'text', 'html', 'pdf' or 'other'."""
+    mime = (mime or "").lower().split(";")[0].strip()
+    name = (filename or "").lower()
+    if mime == "text/html" or name.endswith((".html", ".htm")):
+        return "html"
+    if mime.startswith("text/") or mime in _TEXTLIKE_MIME or name.endswith(_TEXTLIKE_EXT):
+        return "text"
+    if mime == "application/pdf" or name.endswith(".pdf"):
+        return "pdf"
+    return "other"
+
+
+def pdf_available() -> bool:
+    try:
+        import pypdf  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+def pdf_to_text(data: bytes, max_pages: int, max_chars: int) -> tuple[str, int]:
+    """Extract text from at most ``max_pages`` pages; stop early once ``max_chars`` is reached."""
+    import io
+
+    import pypdf
+
+    reader = pypdf.PdfReader(io.BytesIO(data))
+    if reader.is_encrypted:
+        try:
+            reader.decrypt("")
+        except Exception:
+            raise ValueError("PDF is encrypted") from None
+    out, total = [], 0
+    pages = reader.pages
+    for i in range(min(len(pages), max_pages)):
+        text = pages[i].extract_text() or ""
+        out.append(text)
+        total += len(text)
+        if total > max_chars:
+            break
+    return "\n\n".join(out), len(pages)
+
+
+def decode_text_bytes(data: bytes) -> str:
+    for enc in ("utf-8", "utf-16") if data[:2] in (b"\xff\xfe", b"\xfe\xff") else ("utf-8",):
+        try:
+            return data.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return data.decode("latin-1", errors="replace")
 
 
 # ------------------------------------------------------------------ shaping
