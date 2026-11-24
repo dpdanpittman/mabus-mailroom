@@ -62,4 +62,9 @@ including the Limited Use requirements. In plain words:
 Changes to this policy are made in this file, and its history is in the repository.
 The same text is published at https://mabus.ai/gmail-multi/privacy.
 
+## Contact
+
+Questions about this policy or about gmail-multi: open an issue at
+https://github.com/dpdanpittman/gmail-multi/issues.
+
 Last updated 2026-11-23.
