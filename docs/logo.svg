@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="112" fill="#14232e"/>
+  <!-- back envelope -->
+  <g transform="translate(150 92) rotate(-12 110 75)">
+    <rect width="220" height="150" rx="18" fill="#2f6f73"/>
+    <path d="M14 18 L110 92 L206 18" fill="none" stroke="#14232e" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <!-- middle envelope -->
+  <g transform="translate(118 160) rotate(-5 120 80)">
+    <rect width="240" height="160" rx="20" fill="#3fa39a"/>
+    <path d="M16 20 L120 100 L224 20" fill="none" stroke="#14232e" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <!-- front envelope -->
+  <g transform="translate(86 236)">
+    <rect width="270" height="180" rx="22" fill="#f2efe6"/>
+    <path d="M18 22 L135 112 L252 22" fill="none" stroke="#14232e" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <!-- lock badge -->
+  <g transform="translate(330 318)">
+    <circle cx="48" cy="48" r="62" fill="#14232e"/>
+    <circle cx="48" cy="48" r="52" fill="#f0b43c"/>
+    <path d="M28 46 V34 a20 20 0 0 1 40 0 V46" fill="none" stroke="#14232e" stroke-width="10" stroke-linecap="round"/>
+    <rect x="20" y="44" width="56" height="40" rx="8" fill="#14232e"/>
+    <circle cx="48" cy="62" r="6" fill="#f0b43c"/>
+  </g>
+</svg>

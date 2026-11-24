@@ -1,4 +1,12 @@
+<p align="center"><img src="docs/logo.svg" alt="gmail-multi logo" width="120" height="120"></p>
+
 # gmail-multi
+
+gmail-multi is a local MCP server that lets your AI agent read several Gmail accounts at
+once, read-only by default.
+
+Free and open source ([AGPL-3.0](LICENSE)). Privacy policy: [PRIVACY.md](PRIVACY.md),
+also at https://mabus.ai/gmail-multi/privacy.
 
 An [MCP](https://modelcontextprotocol.io) server that gives an AI agent (Claude Code,
 Claude Desktop, or any other MCP client) access to **several Gmail accounts at once**.
@@ -379,6 +387,12 @@ server.
 The tests use fake Gmail clients, fake password-manager CLIs and `httpx.MockTransport`.
 They never call Google or a real vault.
 
+## Privacy
+
+gmail-multi runs only on your machine and talks only to Google. The author runs no
+service and receives no data. See [PRIVACY.md](PRIVACY.md) or
+https://mabus.ai/gmail-multi/privacy.
+
 ## License
 
-[AGPL-3.0](LICENSE).
+[AGPL-3.0](LICENSE). Free and open source.
