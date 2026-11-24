@@ -120,6 +120,23 @@ async def test_token_cache_refreshes_once_and_records_rotation():
 
 
 @pytest.mark.asyncio
+async def test_token_cache_keeps_working_when_saving_a_rotated_token_fails(caplog):
+    def handler(request):
+        return httpx.Response(200, json={"access_token": "at1", "expires_in": 3600, "refresh_token": "rt2"})
+
+    def read_only_store(new_rt):
+        raise PermissionError("store is read-only")
+
+    async with mock_http(handler) as http:
+        cache = AccessTokenCache(http, CLIENT, "rt1", read_only_store)
+        with caplog.at_level("WARNING", logger="mabus_mailroom"):
+            assert await cache.get() == "at1"
+    assert cache._refresh_token == "rt2"
+    assert "could not be saved (PermissionError)" in caplog.text
+    assert "rt2" not in caplog.text and "read-only" not in caplog.text
+
+
+@pytest.mark.asyncio
 async def test_gmail_client_retries_reads_once_on_401_but_never_drafts():
     hits = []
 

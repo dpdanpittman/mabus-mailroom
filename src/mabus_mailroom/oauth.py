@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import logging
 import hashlib
 import secrets
 import threading
@@ -25,6 +26,8 @@ import httpx
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 REVOKE_URL = "https://oauth2.googleapis.com/revoke"
+
+log = logging.getLogger("mabus_mailroom")
 
 
 class OAuthError(Exception):
@@ -210,5 +213,14 @@ class AccessTokenCache:
                 if new_rt and new_rt != self._refresh_token:
                     self._refresh_token = new_rt
                     if self._on_rotate:
-                        self._on_rotate(new_rt)
+                        # Saving the new refresh token can fail (a read-only token store, a locked vault). The new
+                        # token is already in use in memory, so this request and the rest of this run keep working.
+                        # Never let the save failure fail the request; say what the owner has to do.
+                        try:
+                            self._on_rotate(new_rt)
+                        except Exception as exc:  # noqa: BLE001 - any store failure is handled the same way
+                            log.warning(
+                                "Google issued a new refresh token but it could not be saved (%s). This run keeps "
+                                "working; after a restart the account needs `mabus-mailroom add` again, run where "
+                                "the token store is writable.", type(exc).__name__)
             return self._token
