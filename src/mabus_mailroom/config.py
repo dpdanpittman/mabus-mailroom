@@ -50,14 +50,14 @@ def validate_alias(alias: str) -> str:
 
 
 def config_dir() -> Path:
-    env = os.environ.get("GMAIL_MULTI_HOME")
+    env = os.environ.get("MABUS_MAILROOM_HOME")
     if env:
         return Path(env).expanduser()
     if sys.platform == "win32":
         base = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
-        return Path(base) / "gmail-multi"
+        return Path(base) / "mabus-mailroom"
     base = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
-    return Path(base) / "gmail-multi"
+    return Path(base) / "mabus-mailroom"
 
 
 def ensure_private_dir(path: Path) -> None:

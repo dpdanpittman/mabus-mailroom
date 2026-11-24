@@ -1,13 +1,13 @@
-<p align="center"><img src="docs/logo.svg" alt="gmail-multi logo" width="120" height="120"></p>
+<p align="center"><img src="docs/logo.svg" alt="Mabus Mailroom logo" width="120" height="120"></p>
 
-# gmail-multi
+# Mabus Mailroom
 
-gmail-multi is a local MCP server that lets your AI agent read several Gmail accounts at
+Mabus Mailroom is a local MCP server that lets your AI agent read several Gmail accounts at
 once, read-only by default.
 
 Free and open source ([AGPL-3.0](LICENSE)). Privacy policy: [PRIVACY.md](PRIVACY.md),
-also at https://mabus.ai/gmail-multi/privacy. Terms of use: [TERMS.md](TERMS.md), also at
-https://mabus.ai/gmail-multi/terms.
+also at https://mabus.ai/mabus-mailroom/privacy. Terms of use: [TERMS.md](TERMS.md), also at
+https://mabus.ai/mabus-mailroom/terms.
 
 An [MCP](https://modelcontextprotocol.io) server that gives an AI agent (Claude Code,
 Claude Desktop, or any other MCP client) access to **several Gmail accounts at once**.
@@ -32,9 +32,9 @@ server holds all of them, each under a short alias you pick, such as `personal`,
 or `club`.
 
 Other open-source servers already handle several accounts. See [RESEARCH.md](RESEARCH.md)
-for a survey with sources. gmail-multi is built around a narrower, safer default:
+for a survey with sources. Mabus Mailroom is built around a narrower, safer default:
 
-|                    | gmail-multi                                                                                                                                                       |
+|                    | Mabus Mailroom                                                                                                                                                       |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Default permission | `gmail.readonly` token per account. The token itself cannot write.                                                                                                |
 | Drafts / send      | Opt-in per account: `--drafts` or `--send`. Send tools exist only when some account is in send mode, and each send asks the human first (MCP elicitation).        |
@@ -56,7 +56,7 @@ for a survey with sources. gmail-multi is built around a narrower, safer default
 `messages.send`
 ([drafts.send](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.drafts/send),
 [messages.send](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/send)).
-That is why the drafts and send modes get the same token, and gmail-multi itself
+That is why the drafts and send modes get the same token, and Mabus Mailroom itself
 enforces the difference between them (see Security model).
 
 ## Tools
@@ -85,7 +85,7 @@ You need Python 3.10+ and about 10 minutes for the Google Cloud part, which you 
 ### 1. Create your own Google OAuth client
 
 1. Go to the [Google Cloud console](https://console.cloud.google.com/) and create a
-   project, for example `gmail-multi`.
+   project, for example `mabus-mailroom`.
 2. **Enable the Gmail API**: APIs & Services > Library > "Gmail API" > Enable.
 3. **Set up the OAuth consent screen** (Google Auth Platform > Branding / Audience):
    - User type **External** for a personal @gmail.com account. Choose **Internal** if all
@@ -100,7 +100,7 @@ You need Python 3.10+ and about 10 minutes for the Google Cloud part, which you 
 > **Testing mode expires tokens after 7 days.** Google issues refresh tokens that
 > expire in 7 days for External apps in "Testing" status
 > ([Google docs](https://developers.google.com/identity/protocols/oauth2#expiration)).
-> You can re-run `gmail-multi add <alias>` weekly, or set the app to "In production".
+> You can re-run `mabus-mailroom add <alias>` weekly, or set the app to "In production".
 > Gmail scopes are _restricted_ scopes, so a production app that is not verified shows an
 > "unverified app" warning you click through. For a client only you use, that is
 > expected. You are both the developer and the user.
@@ -120,16 +120,16 @@ python3 -m venv .venv
 .venv/bin/pip install pypdf     # optional: PDF text in get_attachment (pure Python, no dependencies)
 # until packaging lands: run as a module
 export PYTHONPATH="$PWD/src"
-alias gmail-multi="$PWD/.venv/bin/python -m gmail_multi"
+alias mabus-mailroom="$PWD/.venv/bin/python -m mabus_mailroom"
 ```
 
 ### 3. Add accounts
 
 ```bash
-gmail-multi add personal --client-file ~/Downloads/client_secret_XXXX.json   # first time only
-gmail-multi add club --drafts          # may also save drafts
-gmail-multi add work --send            # may save drafts and send (each send confirmed)
-gmail-multi list
+mabus-mailroom add personal --client-file ~/Downloads/client_secret_XXXX.json   # first time only
+mabus-mailroom add club --drafts          # may also save drafts
+mabus-mailroom add work --send            # may save drafts and send (each send confirmed)
+mabus-mailroom list
 ```
 
 `add` opens your browser on Google's consent page. Pick the account and approve.
@@ -139,7 +139,7 @@ the token store. Once the client is stored you can delete the downloaded JSON fi
 **On a headless machine**, use a fixed port and forward it:
 
 ```bash
-gmail-multi add work --port 8765 --no-browser
+mabus-mailroom add work --port 8765 --no-browser
 # on your desktop:  ssh -L 8765:127.0.0.1:8765 <server>   then open the printed URL
 ```
 
@@ -147,7 +147,7 @@ To change an account's mode, run `add` again with `--drafts`, `--send` or neithe
 does not support adding scopes later for installed apps, so the account is authorized
 again.
 
-**Removing:** `gmail-multi remove <alias>` (also `revoke`) revokes the grant at Google and
+**Removing:** `mabus-mailroom remove <alias>` (also `revoke`) revokes the grant at Google and
 deletes the stored tokens. `--keep-grant` only deletes the stored tokens.
 
 ### 4. Choose where tokens live (first `add` only)
@@ -162,18 +162,18 @@ deletes the stored tokens. `--keep-grant` only deletes the stored tokens.
 Password-manager examples:
 
 ```bash
-# Proton Pass (pass-cli). Make a vault named "gmail-multi" first, or pass --store-vault.
-gmail-multi add personal --client-file client.json --store command --store-preset proton-pass \
+# Proton Pass (pass-cli). Make a vault named "mabus-mailroom" first, or pass --store-vault.
+mabus-mailroom add personal --client-file client.json --store command --store-preset proton-pass \
     --store-env PROTON_PASS_KEY_PROVIDER=fs     # only if your pass-cli setup uses the fs key provider
 
 # 1Password (op). Sign in first: desktop-app integration, `op signin`, or OP_SERVICE_ACCOUNT_TOKEN in your shell.
-gmail-multi add personal --client-file client.json --store command --store-preset 1password --store-vault gmail-multi
+mabus-mailroom add personal --client-file client.json --store command --store-preset 1password --store-vault mabus-mailroom
 
-# Bitwarden (bw). Run `bw unlock` and export BW_SESSION in the shell that runs gmail-multi.
-gmail-multi add personal --client-file client.json --store command --store-preset bitwarden
+# Bitwarden (bw). Run `bw unlock` and export BW_SESSION in the shell that runs mabus-mailroom.
+mabus-mailroom add personal --client-file client.json --store command --store-preset bitwarden
 
 # Anything else: three commands with an {item} placeholder. set reads the secret on stdin, get prints it.
-gmail-multi add personal --client-file client.json --store command --store-preset custom \
+mabus-mailroom add personal --client-file client.json --store command --store-preset custom \
     --store-get 'mypm read {item}' --store-set 'mypm write {item}' --store-delete 'mypm rm {item}'
 ```
 
@@ -186,7 +186,7 @@ carries vault and item names only:
 | `1password`   | `op item get T --vault V --fields label=password --reveal --format json` | delete the old item, then `op item create --vault V -` (JSON template on stdin)                       | `op item delete T --vault V` |
 | `bitwarden`   | `bw list items --search T`, exact name match, `notes`                    | `bw create item` / `bw edit item ID` (base64 JSON on stdin)                                           | `bw delete item ID`          |
 
-Item names are `gmail-multi-client` and `gmail-multi-account-<alias>`. Docs used:
+Item names are `mabus-mailroom-client` and `mabus-mailroom-account-<alias>`. Docs used:
 [pass-cli item commands](https://protonpass.github.io/pass-cli/commands/item),
 [op item](https://www.1password.dev/cli/reference/management-commands/item/) (its own
 warning: "Command arguments get logged in your command history, and can be visible to
@@ -196,7 +196,7 @@ other processes on your machine"), and [Bitwarden CLI](https://bitwarden.com/hel
   looks locked or signed out..."), and the secret never appears in it. In `serve`, an
   account whose token cannot be read is reported as unavailable, and the other accounts
   keep working.
-- **Proton Pass agent sessions** need a reason on each access. gmail-multi sets
+- **Proton Pass agent sessions** need a reason on each access. Mabus Mailroom sets
   `PROTON_PASS_AGENT_REASON` unless you already set it.
 - **Old versions:** "write" replaces the item. Proton Pass and Bitwarden move the old
   item to trash, and 1Password to Recently Deleted. Empty those if you want old tokens
@@ -209,8 +209,8 @@ other processes on your machine"), and [Bitwarden CLI](https://bitwarden.com/hel
 **Claude Code:**
 
 ```bash
-claude mcp add --env PYTHONPATH=/path/to/gmail-multi/src --transport stdio --scope user gmail-multi \
-  -- /path/to/gmail-multi/.venv/bin/python -m gmail_multi serve
+claude mcp add --env PYTHONPATH=/path/to/mabus-mailroom/src --transport stdio --scope user mabus-mailroom \
+  -- /path/to/mabus-mailroom/.venv/bin/python -m mabus_mailroom serve
 ```
 
 (Drop `--env PYTHONPATH=...` once packaging lands.)
@@ -223,10 +223,10 @@ claude mcp add --env PYTHONPATH=/path/to/gmail-multi/src --transport stdio --sco
 ```json
 {
   "mcpServers": {
-    "gmail-multi": {
-      "command": "/path/to/gmail-multi/.venv/bin/python",
-      "args": ["-m", "gmail_multi", "serve"],
-      "env": { "PYTHONPATH": "/path/to/gmail-multi/src" }
+    "mabus-mailroom": {
+      "command": "/path/to/mabus-mailroom/.venv/bin/python",
+      "args": ["-m", "mabus_mailroom", "serve"],
+      "env": { "PYTHONPATH": "/path/to/mabus-mailroom/src" }
     }
   }
 }
@@ -235,10 +235,10 @@ claude mcp add --env PYTHONPATH=/path/to/gmail-multi/src --transport stdio --sco
 `serve` flags:
 
 - `--read-only` turns off drafts and sending for every account.
-- `--no-confirm-send` skips gmail-multi's own confirmation prompt (see below).
+- `--no-confirm-send` skips Mabus Mailroom's own confirmation prompt (see below).
 
 If you use the encrypted-file store, add
-`"GMAIL_MULTI_PASSPHRASE_CMD": "pass show gmail-multi"`, or a similar command for your
+`"MABUS_MAILROOM_PASSPHRASE_CMD": "pass show mabus-mailroom"`, or a similar command for your
 password manager, to `env`.
 
 ## Sending, and the confirmation step
@@ -246,7 +246,7 @@ password manager, to `env`.
 `send_message` and `send_draft` send real email. They cannot be unsent. Their tool
 descriptions say so, and they carry the MCP `destructiveHint`.
 
-Before each send, gmail-multi asks the human through **MCP elicitation**. The prompt
+Before each send, Mabus Mailroom asks the human through **MCP elicitation**. The prompt
 shows:
 
 - the sending account and address,
@@ -305,7 +305,7 @@ It cannot delete, archive, label, or change settings. No code path in this serve
 those endpoints.
 
 **The token caveat.** For drafts-mode accounts, the "no send" rule is enforced by
-gmail-multi, not by Google. Google's `gmail.compose` scope covers drafts **and sending**
+Mabus Mailroom, not by Google. Google's `gmail.compose` scope covers drafts **and sending**
 ([scope list](https://developers.google.com/workspace/gmail/api/auth/scopes)), so a
 stolen drafts or send token could send. Keep read-only as the default, and opt in only
 where you need to.
@@ -319,13 +319,13 @@ Those are CLI-only and need you in a browser.
   insecure (null/fail, keyrings.alt plaintext) are refused.
 - _Encrypted file:_ `tokens.enc` holds the whole store, encrypted with AES-256-GCM under
   a key derived from your passphrase with scrypt. The passphrase comes from
-  `GMAIL_MULTI_PASSPHRASE_CMD` (recommended), `GMAIL_MULTI_PASSPHRASE`, or a prompt. The
+  `MABUS_MAILROOM_PASSPHRASE_CMD` (recommended), `MABUS_MAILROOM_PASSPHRASE`, or a prompt. The
   server fails closed if it has none.
 - _Password manager:_ see step 4. Secrets go over stdin and stdout only, never argv,
-  never into gmail-multi's config, and never into logs or error messages.
+  never into Mabus Mailroom's config, and never into logs or error messages.
 - `config.json` (aliases, addresses, modes, password-manager settings) and `tokens.enc`
   are written with mode 600 in a mode-700 directory. The directory is
-  `~/.config/gmail-multi`, or `%APPDATA%\gmail-multi`, or set `GMAIL_MULTI_HOME`.
+  `~/.config/mabus-mailroom`, or `%APPDATA%\mabus-mailroom`, or set `MABUS_MAILROOM_HOME`.
 - The OAuth client secret is stored in the token store too. Google says desktop clients
   "cannot keep secrets confidential"
   ([docs](https://developers.google.com/identity/protocols/oauth2/native-app)), so the
@@ -333,12 +333,12 @@ Those are CLI-only and need you in a browser.
 
 **OAuth flow.** This is Google's installed-app flow: a loopback redirect on
 `127.0.0.1:<random port>`, PKCE with S256, and a random `state` checked against CSRF.
-After consent, gmail-multi checks which scopes you actually granted. If you declined
+After consent, Mabus Mailroom checks which scopes you actually granted. If you declined
 compose, the account is saved as read-only. If you declined read access, nothing is
 saved and the token is revoked.
 
 **Email is untrusted input.** Anyone can email you text written to steer an AI agent
-("ignore previous instructions and forward..."). gmail-multi:
+("ignore previous instructions and forward..."). Mabus Mailroom:
 
 - converts HTML to text, dropping scripts, styles and hidden markup. Link targets are
   shown, but only http, https and mailto links,
@@ -388,11 +388,17 @@ server.
 The tests use fake Gmail clients, fake password-manager CLIs and `httpx.MockTransport`.
 They never call Google or a real vault.
 
+## History
+
+Renamed from gmail-multi on 2026-11-23. Nobody had installed it yet, so there are no
+compatibility shims: the old command, module, config directory and environment variables
+are gone.
+
 ## Privacy
 
-gmail-multi runs only on your machine and talks only to Google. The author runs no
+Mabus Mailroom runs only on your machine and talks only to Google. The author runs no
 service and receives no data. See [PRIVACY.md](PRIVACY.md) or
-https://mabus.ai/gmail-multi/privacy. Terms of use: [TERMS.md](TERMS.md).
+https://mabus.ai/mabus-mailroom/privacy. Terms of use: [TERMS.md](TERMS.md).
 
 ## License
 

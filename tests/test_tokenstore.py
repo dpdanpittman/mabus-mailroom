@@ -4,8 +4,8 @@ import stat
 
 import pytest
 
-from gmail_multi.config import Account, Config
-from gmail_multi.tokenstore import (CLIENT_KEY, EncryptedFileStore, KeyringStore, StoreError, account_key,
+from mabus_mailroom.config import Account, Config
+from mabus_mailroom.tokenstore import (CLIENT_KEY, EncryptedFileStore, KeyringStore, StoreError, account_key,
                                     is_secure_backend, resolve_store_kind)
 
 SECRET_RT = "1//0gFAKE-refresh-token-abcdefghijklmnopqrstuvwxyz"
@@ -86,7 +86,7 @@ def test_noninteractive_without_passphrase_fails_closed(isolated_home, monkeypat
 
 
 def test_passphrase_command(isolated_home, monkeypatch):
-    monkeypatch.setenv("GMAIL_MULTI_PASSPHRASE_CMD", "printf 'from-a-password-manager'")
+    monkeypatch.setenv("MABUS_MAILROOM_PASSPHRASE_CMD", "printf 'from-a-password-manager'")
     s1 = EncryptedFileStore(scrypt_n=2**12)
     s1.set("k", {"v": 1})
     s2 = EncryptedFileStore(passphrase_provider=fixed("from-a-password-manager"))

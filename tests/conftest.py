@@ -20,8 +20,8 @@ def unwrap(text: str) -> tuple[str, dict]:
 
 @pytest.fixture(autouse=True)
 def isolated_home(tmp_path, monkeypatch):
-    """Point gmail-multi at a temp config dir so tests never touch a real one."""
-    monkeypatch.setenv("GMAIL_MULTI_HOME", str(tmp_path / "gm-home"))
-    monkeypatch.delenv("GMAIL_MULTI_PASSPHRASE", raising=False)
-    monkeypatch.delenv("GMAIL_MULTI_PASSPHRASE_CMD", raising=False)
-    return tmp_path / "gm-home"
+    """Point mabus-mailroom at a temp config dir so tests never touch a real one."""
+    monkeypatch.setenv("MABUS_MAILROOM_HOME", str(tmp_path / "mm-home"))
+    monkeypatch.delenv("MABUS_MAILROOM_PASSPHRASE", raising=False)
+    monkeypatch.delenv("MABUS_MAILROOM_PASSPHRASE_CMD", raising=False)
+    return tmp_path / "mm-home"

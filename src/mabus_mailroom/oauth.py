@@ -82,8 +82,8 @@ def build_auth_url(client: OAuthClient, redirect_uri: str, scopes: list[str], st
 
 
 _DONE_PAGE = (
-    b"<!doctype html><meta charset='utf-8'><title>gmail-multi</title>"
-    b"<p>gmail-multi: authorization received. You can close this tab.</p>"
+    b"<!doctype html><meta charset='utf-8'><title>Mabus Mailroom</title>"
+    b"<p>Mabus Mailroom: authorization received. You can close this tab.</p>"
 )
 
 

@@ -7,8 +7,8 @@ import urllib.request
 import httpx
 import pytest
 
-from gmail_multi.gmail import GmailClient
-from gmail_multi.oauth import (AccessTokenCache, OAuthClient, OAuthError, ReauthRequired, build_auth_url,
+from mabus_mailroom.gmail import GmailClient
+from mabus_mailroom.oauth import (AccessTokenCache, OAuthClient, OAuthError, ReauthRequired, build_auth_url,
                                exchange_code, make_pkce_pair, refresh_access_token, wait_for_redirect)
 
 CLIENT = OAuthClient("123-abc.apps.googleusercontent.com", "GOCSPX-fake")

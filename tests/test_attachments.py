@@ -2,9 +2,9 @@ import pytest
 from conftest import unwrap
 from fakes import MODE_READONLY, FakeGmail, b64, config_with, make_msg
 
-import gmail_multi.service as service_mod
-from gmail_multi.content import Limits
-from gmail_multi.service import MultiGmail, ToolError
+import mabus_mailroom.service as service_mod
+from mabus_mailroom.content import Limits
+from mabus_mailroom.service import MultiGmail, ToolError
 
 
 def minimal_pdf(text: str) -> bytes:

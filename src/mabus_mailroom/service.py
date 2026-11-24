@@ -63,7 +63,7 @@ class RateLimiter:
         now = time.monotonic()
         self._calls = [t for t in self._calls if now - t < 60]
         if len(self._calls) >= self.per_minute:
-            raise ToolError(f"rate limit: more than {self.per_minute} gmail-multi calls in a minute; wait and retry")
+            raise ToolError(f"rate limit: more than {self.per_minute} Mabus Mailroom calls in a minute; wait and retry")
         self._calls.append(now)
 
 
@@ -125,7 +125,7 @@ class MultiGmail:
             aliases = [a for a in sorted(self.config.accounts) if a in self.clients]
             errors += [{"account": a, "error": f"unavailable: {r}"} for a, r in sorted(self.unavailable.items())]
             if not aliases and not errors:
-                raise ToolError("no accounts configured; run `gmail-multi add <alias>`")
+                raise ToolError("no accounts configured; run `mabus-mailroom add <alias>`")
         else:
             aliases = [self.account(account).alias]
         results = await asyncio.gather(
@@ -232,7 +232,7 @@ class MultiGmail:
         if not acc.can_draft:
             raise ToolError(
                 f"account {acc.alias!r} is read-only. To allow drafts, the owner runs "
-                f"`gmail-multi add {acc.alias} --drafts` (re-authorizes with the gmail.compose scope)."
+                f"`mabus-mailroom add {acc.alias} --drafts` (re-authorizes with the gmail.compose scope)."
             )
         return acc
 
@@ -244,7 +244,7 @@ class MultiGmail:
         if not acc.can_send:
             raise ToolError(
                 f"account {acc.alias!r} is not allowed to send (mode: {acc.mode}). To allow it, the owner runs "
-                f"`gmail-multi add {acc.alias} --send`."
+                f"`mabus-mailroom add {acc.alias} --send`."
             )
         return acc
 

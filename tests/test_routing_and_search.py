@@ -2,8 +2,8 @@ import pytest
 from conftest import unwrap
 from fakes import MODE_READONLY, FakeGmail, config_with, make_msg
 
-from gmail_multi.gmail import GmailError
-from gmail_multi.service import MultiGmail, RateLimiter, ToolError
+from mabus_mailroom.gmail import GmailError
+from mabus_mailroom.service import MultiGmail, RateLimiter, ToolError
 
 
 def two_accounts():

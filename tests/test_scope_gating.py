@@ -4,9 +4,9 @@ import email
 import pytest
 from fakes import MODE_DRAFTS, MODE_READONLY, FakeGmail, config_with, make_msg
 
-from gmail_multi.config import SCOPE_READONLY
-from gmail_multi.server import build_server
-from gmail_multi.service import MultiGmail, ToolError
+from mabus_mailroom.config import SCOPE_READONLY
+from mabus_mailroom.server import build_server
+from mabus_mailroom.service import MultiGmail, ToolError
 
 
 def setup(read_only=False):

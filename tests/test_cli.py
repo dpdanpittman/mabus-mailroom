@@ -5,9 +5,9 @@ from pathlib import Path
 import pytest
 from mcp import Client, StdioServerParameters
 
-from gmail_multi import cli
-from gmail_multi.config import MODE_READONLY, Account, Config
-from gmail_multi.tokenstore import CLIENT_KEY, account_key
+from mabus_mailroom import cli
+from mabus_mailroom.config import MODE_READONLY, Account, Config
+from mabus_mailroom.tokenstore import CLIENT_KEY, account_key
 
 
 class DictStore:
@@ -80,8 +80,8 @@ def test_bad_alias_rejected(capsys):
 async def test_serve_over_real_stdio_with_no_accounts(isolated_home):
     src = str(Path(__file__).resolve().parent.parent / "src")
     params = StdioServerParameters(
-        command=sys.executable, args=["-m", "gmail_multi", "serve"],
-        env={**os.environ, "PYTHONPATH": src, "GMAIL_MULTI_HOME": str(isolated_home)},
+        command=sys.executable, args=["-m", "mabus_mailroom", "serve"],
+        env={**os.environ, "PYTHONPATH": src, "MABUS_MAILROOM_HOME": str(isolated_home)},
     )
     async with Client(params) as client:
         names = {t.name for t in (await client.list_tools()).tools}

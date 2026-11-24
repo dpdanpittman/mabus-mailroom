@@ -8,9 +8,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from gmail_multi import cli
-from gmail_multi.config import Config
-from gmail_multi.tokenstore import CommandStore, StoreError, account_key
+from mabus_mailroom import cli
+from mabus_mailroom.config import Config
+from mabus_mailroom.tokenstore import CommandStore, StoreError, account_key
 
 SECRET = {"refresh_token": "1//0gFAKE-refresh-SECRET-abcdef", "scopes": []}
 SECRET_TEXT = "1//0gFAKE-refresh-SECRET-abcdef"
@@ -53,7 +53,7 @@ class FakeVault:
     def _1password(self, argv, stdin):
         if argv[1:3] == ["item", "get"]:
             if argv[3] not in self.items:
-                return 1, b"", f'[ERROR] "{argv[3]}" isn\'t an item in the "gmail-multi" vault.'.encode()
+                return 1, b"", f'[ERROR] "{argv[3]}" isn\'t an item in the "mabus-mailroom" vault.'.encode()
             return 0, json.dumps({"id": "password", "value": self.items[argv[3]]}).encode(), b""
         if argv[1:3] == ["item", "create"]:
             assert argv[-1] == "-"
@@ -103,7 +103,7 @@ def assert_secret_never_in_argv_or_added_env(vault, base_env_keys):
 def test_roundtrip_secret_only_on_stdin(preset):
     import os
     vault = FakeVault(preset)
-    store = CommandStore({"preset": preset, "vault": "gmail-multi"}, runner=vault)
+    store = CommandStore({"preset": preset, "vault": "mabus-mailroom"}, runner=vault)
     assert store.get(account_key("work")) is None  # missing item is not an error
     store.set(account_key("work"), SECRET)
     store.set(account_key("work"), SECRET)  # replacing works and leaves one item
@@ -202,7 +202,7 @@ def test_custom_preset_end_to_end_with_a_real_subprocess(tmp_path, monkeypatch):
     store.delete(account_key("work"))
     assert store.get(account_key("work")) is None
     log = (vault_dir / "argv.log").read_text()
-    assert SECRET_TEXT not in log and "gmail-multi-account-work" in log
+    assert SECRET_TEXT not in log and "mabus-mailroom-account-work" in log
 
 
 def test_cli_command_store_settings(isolated_home):
@@ -224,9 +224,9 @@ def test_cli_command_store_settings(isolated_home):
 async def test_locked_store_marks_account_unavailable_but_others_work():
     import httpx
 
-    from gmail_multi.config import MODE_READONLY, Account
-    from gmail_multi.server import build_service
-    from gmail_multi.service import ToolError
+    from mabus_mailroom.config import MODE_READONLY, Account
+    from mabus_mailroom.server import build_service
+    from mabus_mailroom.service import ToolError
 
     class HalfLocked:
         name = "command"
@@ -252,7 +252,7 @@ async def test_search_all_reports_unavailable_account():
     from conftest import unwrap
     from fakes import FakeGmail, config_with, make_msg
 
-    from gmail_multi.service import MultiGmail
+    from mabus_mailroom.service import MultiGmail
 
     svc = MultiGmail(config_with(ok="readonly", locked="readonly"), {"ok": FakeGmail([make_msg("m1", 5)])},
                      unavailable={"locked": "token store unavailable (vault locked)"})

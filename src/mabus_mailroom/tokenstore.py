@@ -32,7 +32,7 @@ from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
 from .config import config_dir, write_private_file
 
-SERVICE = "gmail-multi"
+SERVICE = "mabus-mailroom"
 CLIENT_KEY = "client"
 
 
@@ -123,25 +123,25 @@ PassphraseProvider = Callable[[bool], str]  # arg: True when creating a new stor
 def default_passphrase_provider(creating: bool) -> str:
     """Passphrase from a command, the environment, or an interactive prompt.
 
-    ``GMAIL_MULTI_PASSPHRASE_CMD`` runs a command (no shell) and uses its stdout,
-    e.g. ``pass show gmail-multi`` or ``op read op://Private/gmail-multi/password``.
-    ``GMAIL_MULTI_PASSPHRASE`` is accepted but less safe (it ends up in a config file).
+    ``MABUS_MAILROOM_PASSPHRASE_CMD`` runs a command (no shell) and uses its stdout,
+    e.g. ``pass show mabus-mailroom`` or ``op read op://Private/mabus-mailroom/password``.
+    ``MABUS_MAILROOM_PASSPHRASE`` is accepted but less safe (it ends up in a config file).
     """
-    cmd = os.environ.get("GMAIL_MULTI_PASSPHRASE_CMD")
+    cmd = os.environ.get("MABUS_MAILROOM_PASSPHRASE_CMD")
     if cmd:
         out = subprocess.run(shlex.split(cmd), capture_output=True, text=True, check=False)
         if out.returncode != 0 or not out.stdout.strip():
-            raise StoreError("GMAIL_MULTI_PASSPHRASE_CMD failed or printed nothing")
+            raise StoreError("MABUS_MAILROOM_PASSPHRASE_CMD failed or printed nothing")
         return out.stdout.rstrip("\n")
-    env = os.environ.get("GMAIL_MULTI_PASSPHRASE")
+    env = os.environ.get("MABUS_MAILROOM_PASSPHRASE")
     if env:
         return env
     if not sys.stdin.isatty():
         raise StoreError(
-            "the encrypted token file needs a passphrase: set GMAIL_MULTI_PASSPHRASE_CMD "
-            "(recommended) or GMAIL_MULTI_PASSPHRASE"
+            "the encrypted token file needs a passphrase: set MABUS_MAILROOM_PASSPHRASE_CMD "
+            "(recommended) or MABUS_MAILROOM_PASSPHRASE"
         )
-    first = getpass.getpass("gmail-multi passphrase: ")
+    first = getpass.getpass("mabus-mailroom passphrase: ")
     if creating:
         if len(first) < 12:
             raise StoreError("use a passphrase of at least 12 characters")
@@ -191,7 +191,7 @@ class EncryptedFileStore:
             plain = AESGCM(key).decrypt(
                 base64.b64decode(envelope["nonce"]),
                 base64.b64decode(envelope["ciphertext"]),
-                b"gmail-multi-v1",
+                b"mabus-mailroom-v1",
             )
         except InvalidTag:
             self._passphrase = None
@@ -206,7 +206,7 @@ class EncryptedFileStore:
         nonce = os.urandom(12)
         n, r, p = self._scrypt_n, 8, 1
         key = self._derive(self._passphrase, salt, n, r, p)
-        ct = AESGCM(key).encrypt(nonce, json.dumps(data).encode("utf-8"), b"gmail-multi-v1")
+        ct = AESGCM(key).encrypt(nonce, json.dumps(data).encode("utf-8"), b"mabus-mailroom-v1")
         envelope = {
             "v": self.VERSION,
             "kdf": {"name": "scrypt", "salt": base64.b64encode(salt).decode(), "n": n, "r": r, "p": p},
@@ -269,15 +269,15 @@ class CommandStore:
         self.preset = settings.get("preset", "")
         if self.preset not in self.PRESETS:
             raise StoreError(f"command store needs a preset: one of {', '.join(self.PRESETS)}")
-        self.vault = settings.get("vault") or "gmail-multi"
-        self.prefix = settings.get("prefix") or "gmail-multi"
+        self.vault = settings.get("vault") or "mabus-mailroom"
+        self.prefix = settings.get("prefix") or "mabus-mailroom"
         self.settings = settings
         self._run_raw = runner or _default_runner
         extra = {str(k): str(v) for k, v in (settings.get("env") or {}).items()}
         self._env = {**os.environ, **extra}
         if self.preset == "proton-pass":
             # Agent sessions must give a reason for each access (shown in Proton's audit log).
-            self._env.setdefault("PROTON_PASS_AGENT_REASON", "gmail-multi OAuth token access")
+            self._env.setdefault("PROTON_PASS_AGENT_REASON", "Mabus Mailroom OAuth token access")
         if self.preset == "custom":
             for op in ("get", "set", "delete"):
                 if "{item}" not in (settings.get(op) or ""):
@@ -324,7 +324,7 @@ class CommandStore:
         try:
             return json.loads(raw)
         except ValueError:
-            raise StoreError(f"item {item!r} does not hold gmail-multi data") from None
+            raise StoreError(f"item {item!r} does not hold Mabus Mailroom data") from None
 
     def set(self, key: str, value: dict) -> None:
         item = self.item_name(key)

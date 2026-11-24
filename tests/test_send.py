@@ -7,9 +7,9 @@ import pytest
 from fakes import MODE_DRAFTS, MODE_READONLY, MODE_SEND, FakeGmail, config_with, make_msg
 from mcp import Client, types
 
-from gmail_multi.content import Limits
-from gmail_multi.server import build_server
-from gmail_multi.service import MultiGmail, ToolError
+from mabus_mailroom.content import Limits
+from mabus_mailroom.server import build_server
+from mabus_mailroom.service import MultiGmail, ToolError
 
 MANY = ", ".join(f"p{i}@example.com" for i in range(21))
 

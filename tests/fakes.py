@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 
-from gmail_multi.config import MODE_DRAFTS, MODE_READONLY, MODE_SCOPES, MODE_SEND, Account, Config
+from mabus_mailroom.config import MODE_DRAFTS, MODE_READONLY, MODE_SCOPES, MODE_SEND, Account, Config
 
 
 def b64(text) -> str:

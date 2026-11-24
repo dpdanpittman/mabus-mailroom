@@ -5,8 +5,8 @@ from conftest import unwrap
 from fakes import MODE_DRAFTS, MODE_READONLY, FakeGmail, config_with, make_msg
 from mcp import Client
 
-from gmail_multi.server import build_server
-from gmail_multi.service import MultiGmail
+from mabus_mailroom.server import build_server
+from mabus_mailroom.service import MultiGmail
 
 
 def server():

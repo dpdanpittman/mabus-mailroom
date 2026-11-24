@@ -1,4 +1,4 @@
-"""Command line: gmail-multi add | list | remove | serve."""
+"""Command line: mabus-mailroom add | list | remove | serve."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from .tokenstore import CLIENT_KEY, StoreError, account_key, open_store, resolve
 
 
 def _err(msg: str) -> int:
-    print(f"gmail-multi: {msg}", file=sys.stderr)
+    print(f"mabus-mailroom: {msg}", file=sys.stderr)
     return 1
 
 
@@ -37,7 +37,7 @@ def _command_settings(args) -> dict:
         if not sep or not k:
             raise StoreError(f"--store-env needs KEY=VALUE, got {pair!r}")
         if any(w in k.upper() for w in ("TOKEN", "SECRET", "PASSWORD", "SESSION", "KEY_")) and "PROVIDER" not in k.upper():
-            raise StoreError(f"--store-env {k}: put secrets in your shell environment, not in gmail-multi's config")
+            raise StoreError(f"--store-env {k}: put secrets in your shell environment, not in Mabus Mailroom's config")
         env[k] = v
     if env:
         settings["env"] = env
@@ -143,7 +143,7 @@ def cmd_add(args) -> int:
 def cmd_list(args) -> int:
     cfg = Config.load()
     if not cfg.accounts:
-        print("No accounts. Add one with: gmail-multi add <alias> --client-file client_secret.json")
+        print("No accounts. Add one with: mabus-mailroom add <alias> --client-file client_secret.json")
         return 0
     print(f"store: {cfg.store}   config: {cfg.path}")
     for a in sorted(cfg.accounts.values(), key=lambda a: a.alias):
@@ -189,7 +189,7 @@ def cmd_remove(args) -> int:
 def cmd_serve(args) -> int:
     from .server import build_server, build_service
 
-    logging.basicConfig(level=logging.INFO, stream=sys.stderr, format="gmail-multi %(levelname)s %(message)s")
+    logging.basicConfig(level=logging.INFO, stream=sys.stderr, format="mabus-mailroom %(levelname)s %(message)s")
     cfg = Config.load()
     store = _open_store(cfg) if cfg.accounts else None
 
@@ -210,8 +210,8 @@ def cmd_serve(args) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="gmail-multi", description="MCP server for several Gmail accounts.")
-    p.add_argument("--version", action="version", version=f"gmail-multi {__version__}")
+    p = argparse.ArgumentParser(prog="mabus-mailroom", description="Mabus Mailroom: an MCP server for several Gmail accounts.")
+    p.add_argument("--version", action="version", version=f"mabus-mailroom {__version__}")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     a = sub.add_parser("add", help="authorize a Gmail account under an alias (re-run to change its mode)")
@@ -224,7 +224,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="where tokens live (first run only): OS keychain, encrypted file, or a password manager CLI")
     a.add_argument("--store-preset", choices=["proton-pass", "1password", "bitwarden", "custom"],
                    help="password manager for --store command")
-    a.add_argument("--store-vault", help="vault name for --store command (default: gmail-multi)")
+    a.add_argument("--store-vault", help="vault name for --store command (default: mabus-mailroom)")
     a.add_argument("--store-env", action="append", metavar="KEY=VALUE",
                    help="extra non-secret environment for the CLI, e.g. PROTON_PASS_KEY_PROVIDER=fs")
     a.add_argument("--store-get", help="custom preset: command that prints the secret for {item}")
