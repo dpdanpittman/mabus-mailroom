@@ -2,6 +2,8 @@
 
 # Mabus Mailroom
 
+[![dpdanpittman/mabus-mailroom MCP server](https://glama.ai/mcp/servers/dpdanpittman/mabus-mailroom/badges/score.svg)](https://glama.ai/mcp/servers/dpdanpittman/mabus-mailroom)
+
 Mabus Mailroom is a local MCP server that lets your AI agent read several Gmail accounts at
 once, read-only by default.
 
