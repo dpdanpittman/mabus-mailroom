@@ -34,7 +34,7 @@ or `club`.
 Other open-source servers already handle several accounts. See [RESEARCH.md](RESEARCH.md)
 for a survey with sources. Mabus Mailroom is built around a narrower, safer default:
 
-|                    | Mabus Mailroom                                                                                                                                                       |
+|                    | Mabus Mailroom                                                                                                                                                    |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Default permission | `gmail.readonly` token per account. The token itself cannot write.                                                                                                |
 | Drafts / send      | Opt-in per account: `--drafts` or `--send`. Send tools exist only when some account is in send mode, and each send asks the human first (MCP elicitation).        |
@@ -116,11 +116,9 @@ From a clone of this repository:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install "mcp>=2.3,<3" "httpx>=0.27,<1" "keyring>=25,<26" "cryptography>=43"
-.venv/bin/pip install pypdf     # optional: PDF text in get_attachment (pure Python, no dependencies)
-# until packaging lands: run as a module
-export PYTHONPATH="$PWD/src"
-alias mabus-mailroom="$PWD/.venv/bin/python -m mabus_mailroom"
+.venv/bin/pip install .           # or ".[pdf]" for PDF text in get_attachment
+export PATH="$PWD/.venv/bin:$PATH" # puts the mabus-mailroom command on your PATH
+mabus-mailroom --version
 ```
 
 ### 3. Add accounts
@@ -209,11 +207,9 @@ other processes on your machine"), and [Bitwarden CLI](https://bitwarden.com/hel
 **Claude Code:**
 
 ```bash
-claude mcp add --env PYTHONPATH=/path/to/mabus-mailroom/src --transport stdio --scope user mabus-mailroom \
-  -- /path/to/mabus-mailroom/.venv/bin/python -m mabus_mailroom serve
+claude mcp add --transport stdio --scope user mabus-mailroom \
+  -- /path/to/mabus-mailroom/.venv/bin/mabus-mailroom serve
 ```
-
-(Drop `--env PYTHONPATH=...` once packaging lands.)
 
 **Claude Desktop:** edit `claude_desktop_config.json`. On macOS it is
 `~/Library/Application Support/Claude/`, on Windows `%APPDATA%\Claude\`, and on Linux
@@ -224,9 +220,8 @@ claude mcp add --env PYTHONPATH=/path/to/mabus-mailroom/src --transport stdio --
 {
   "mcpServers": {
     "mabus-mailroom": {
-      "command": "/path/to/mabus-mailroom/.venv/bin/python",
-      "args": ["-m", "mabus_mailroom", "serve"],
-      "env": { "PYTHONPATH": "/path/to/mabus-mailroom/src" }
+      "command": "/path/to/mabus-mailroom/.venv/bin/mabus-mailroom",
+      "args": ["serve"]
     }
   }
 }
