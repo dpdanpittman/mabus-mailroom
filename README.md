@@ -5,6 +5,10 @@
 Mabus Mailroom is a local MCP server that lets your AI agent read several Gmail accounts at
 once, read-only by default.
 
+![Tool calls against three invented inboxes: one search across all of them, a draft refused on a read-only account, a draft saved on an account in drafts mode](docs/demo.png)
+
+_Real tool calls through the MCP protocol, against fake Gmail clients holding invented mail. The search result is shortened._
+
 Free and open source ([AGPL-3.0](LICENSE)). Privacy policy: [PRIVACY.md](PRIVACY.md),
 also at https://mabus.ai/mabus-mailroom/privacy. Terms of use: [TERMS.md](TERMS.md), also at
 https://mabus.ai/mabus-mailroom/terms.
